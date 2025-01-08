@@ -47,7 +47,6 @@ const uint8_t invsbox[256] = {0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0x
 
 uint8_t state[STATE_ROW_SIZE][STATE_COL_SIZE];
 uint8_t roundkey[STATE_ROW_SIZE][STATE_COL_SIZE];
-uint8_t masterkey[STATE_ROW_SIZE][STATE_COL_SIZE];
 uint8_t targeted_round = 0;
 
 /*Gallois Field Multiplication*/
@@ -223,21 +222,21 @@ void GetRoundKey(uint8_t roundkey[STATE_ROW_SIZE][STATE_COL_SIZE], uint8_t round
 
 void MCMatrixColumnProduct(uint8_t colonne[STATE_COL_SIZE])
 {
-    // Transform 1D key to 2D key
-    for (int col = 0; col < STATE_COL_SIZE; col++)
-    {
-        for (int row = 0; row < STATE_ROW_SIZE; row++)
-        {
-            masterkey[row][col] = colonne[row + col * STATE_COL_SIZE];
-        }
-    }
+    // ??
 }
 
 void AESEncrypt(uint8_t ciphertext[DATA_SIZE], uint8_t plaintext[DATA_SIZE], uint8_t key[DATA_SIZE])
 {
     uint8_t roundkeys[ROUND_COUNT + 1][STATE_ROW_SIZE][STATE_COL_SIZE];
+    uint8_t masterkey[STATE_ROW_SIZE][STATE_COL_SIZE];
 
-    MCMatrixColumnProduct(key);
+    for (int col = 0; col < STATE_COL_SIZE; col++)
+    {
+        for (int row = 0; row < STATE_ROW_SIZE; row++)
+        {
+            masterkey[row][col] = key[row + col * STATE_COL_SIZE];
+        }
+    }
     KeyGen(roundkeys, masterkey);
     GetRoundKey(roundkey, roundkeys, targeted_round);
     MessageToState(state, plaintext);
@@ -266,11 +265,11 @@ void AESEncrypt(uint8_t ciphertext[DATA_SIZE], uint8_t plaintext[DATA_SIZE], uin
     }
 }
 
-int main(int argc, char *argv[])
-{
-    uint8_t ciphertext[DATA_SIZE];
-    uint8_t plaintext[DATA_SIZE] = "testcbc";
-    uint8_t key[DATA_SIZE] = {0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c};
+// int main(int argc, char *argv[])
+// {
+//     uint8_t ciphertext[DATA_SIZE];
+//     uint8_t plaintext[DATA_SIZE] = "testcbc";
+//     uint8_t key[DATA_SIZE] = {0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c};
 
-    AESEncrypt(ciphertext, plaintext, key);
-}
+//     AESEncrypt(ciphertext, plaintext, key);
+// }
