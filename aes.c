@@ -47,6 +47,7 @@ const uint8_t invsbox[256] = {0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0x
 
 uint8_t state[STATE_ROW_SIZE][STATE_COL_SIZE];
 uint8_t roundkey[STATE_ROW_SIZE][STATE_COL_SIZE];
+uint8_t masterkey[STATE_ROW_SIZE][STATE_COL_SIZE];
 uint8_t targeted_round = 0;
 
 /*Gallois Field Multiplication*/
@@ -81,6 +82,28 @@ void KeyGen(uint8_t roundkeys[][STATE_ROW_SIZE][STATE_COL_SIZE], uint8_t master_
     {
         ColumnFill(roundkeys, round);
         OtherColumnsFill(roundkeys, round);
+    }
+}
+
+void MessageToState(uint8_t state[STATE_ROW_SIZE][STATE_COL_SIZE], uint8_t message[DATA_SIZE])
+{
+    for (int col = 0; col < STATE_ROW_SIZE; col++)
+    {
+        for (int row = 0; row < STATE_COL_SIZE; row++)
+        {
+            state[row][col] = message[row + col * STATE_COL_SIZE];
+        }
+    }
+}
+
+void StateToMessage(uint8_t message[DATA_SIZE], uint8_t state[STATE_ROW_SIZE][STATE_COL_SIZE])
+{
+    for (int col = 0; col < STATE_ROW_SIZE; col++)
+    {
+        for (int row = 0; row < STATE_COL_SIZE; row++)
+        {
+            message[row + col * STATE_COL_SIZE] = state[row][col];
+        }
     }
 }
 
@@ -198,21 +221,26 @@ void GetRoundKey(uint8_t roundkey[STATE_ROW_SIZE][STATE_COL_SIZE], uint8_t round
     }
 }
 
+void MCMatrixColumnProduct(uint8_t colonne[STATE_COL_SIZE])
+{
+    // Transform 1D key to 2D key
+    for (int col = 0; col < STATE_COL_SIZE; col++)
+    {
+        for (int row = 0; row < STATE_ROW_SIZE; row++)
+        {
+            masterkey[row][col] = colonne[row + col * STATE_COL_SIZE];
+        }
+    }
+}
+
 void AESEncrypt(uint8_t ciphertext[DATA_SIZE], uint8_t plaintext[DATA_SIZE], uint8_t key[DATA_SIZE])
 {
     uint8_t roundkeys[ROUND_COUNT + 1][STATE_ROW_SIZE][STATE_COL_SIZE];
-    uint8_t masterkey[STATE_ROW_SIZE][STATE_COL_SIZE] = {{0x2b, 0x28, 0xab, 0x09},
-                                                         {0x7e, 0xae, 0xf7, 0xcf},
-                                                         {0x15, 0xd2, 0x15, 0x4f},
-                                                         {0x16, 0xa6, 0x88, 0x3c}};
 
-    uint8_t state[STATE_ROW_SIZE][STATE_COL_SIZE] = {{0x32, 0x88, 0x31, 0xe0},
-                                                     {0x43, 0x5a, 0x31, 0x37},
-                                                     {0xf6, 0x30, 0x98, 0x07},
-                                                     {0xa8, 0x8d, 0xa2, 0x34}};
-
+    MCMatrixColumnProduct(key);
     KeyGen(roundkeys, masterkey);
     GetRoundKey(roundkey, roundkeys, targeted_round);
+    MessageToState(state, plaintext);
 
     AddRoundKey(state, roundkey);
     for (targeted_round = 1; targeted_round < ROUND_COUNT; targeted_round++)
@@ -227,15 +255,22 @@ void AESEncrypt(uint8_t ciphertext[DATA_SIZE], uint8_t plaintext[DATA_SIZE], uin
     ShiftRows(state);
     GetRoundKey(roundkey, roundkeys, targeted_round);
     AddRoundKey(state, roundkey);
+
+    // Adding final state to the ciphertext
+    for (int col = 0; col < STATE_ROW_SIZE; col++)
+    {
+        for (int row = 0; row < STATE_COL_SIZE; row++)
+        {
+            ciphertext[row + col * STATE_COL_SIZE] = state[row][col];
+        }
+    }
 }
 
 int main(int argc, char *argv[])
 {
     uint8_t ciphertext[DATA_SIZE];
-    uint8_t plaintext[DATA_SIZE] = "Ceci est un test";
-    uint8_t key[DATA_SIZE] = {0x2b, 0x28, 0xab, 0x09,
-                              0x7e, 0xae, 0xf7, 0xcf,
-                              0x15, 0xd2, 0x15, 0x4f,
-                              0x16, 0xa6, 0x88, 0x3c};
+    uint8_t plaintext[DATA_SIZE] = "testcbc";
+    uint8_t key[DATA_SIZE] = {0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c};
+
     AESEncrypt(ciphertext, plaintext, key);
 }
